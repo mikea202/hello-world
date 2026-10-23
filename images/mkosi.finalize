@@ -1,0 +1,6 @@
+#!/bin/sh
+# Runs on the build host once the image tree is complete ($BUILDROOT).
+set -eu
+# Every machine must get its own SSH host keys: sshd-keygen.service runs
+# "ssh-keygen -A" on first boot (machine-id is "uninitialized" in the image).
+rm -f "$BUILDROOT"/etc/ssh/ssh_host_*

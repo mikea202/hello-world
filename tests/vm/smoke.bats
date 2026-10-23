@@ -29,6 +29,15 @@ s() { $MIKOS_SSH "$@"; }
 	[ "$status" -ne 0 ]
 }
 
+@test "SSH host keys generated on first boot" {
+	booted=$(s 'echo $(( $(date +%s) - $(cut -d. -f1 /proc/uptime) ))')
+	for t in ed25519 ecdsa rsa; do
+		made=$(s sudo stat -c %Y /etc/ssh/ssh_host_${t}_key)
+		echo "$t key mtime $made, booted $booted"
+		[ "$made" -ge $((booted - 5)) ]
+	done
+}
+
 @test "password authentication not offered" {
 	run ssh $MIKOS_SSH_OPTS -o BatchMode=yes -o PubkeyAuthentication=no nobody@127.0.0.1 true
 	[ "$status" -ne 0 ]

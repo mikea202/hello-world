@@ -13,6 +13,7 @@ if [[ "$profile" == test ]]; then
 fi
 mkdir -p out/images
 mkosi "${args[@]}" build
+build/scripts/check-image.sh "out/images/$id.raw"
 qemu-img convert -c -O qcow2 "out/images/$id.raw" "out/images/$id.qcow2"
 if [[ "$profile" != test ]]; then
 	qemu-img convert -O vhdx -o subformat=dynamic "out/images/$id.raw" "out/images/$id.vhdx"
