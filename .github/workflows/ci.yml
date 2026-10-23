@@ -1,0 +1,45 @@
+name: ci
+on:
+  push:
+    branches: [master, "claude/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable KVM for QEMU
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Packages
+        run: make debs lint test-pkg
+
+      - name: Repo
+        run: make repo test-repo
+
+      - name: VM smoke tests
+        run: make image PROFILE=test && make test-vm
+
+      - name: Release image + size budgets
+        run: make image && make size
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mikos-server-images
+          path: |
+            out/images/mikos-server.qcow2
+            out/images/mikos-server.vhdx
+          retention-days: 7

@@ -1,0 +1,30 @@
+Source: mikos-base
+Section: admin
+Priority: optional
+Maintainer: Mikos Maintainers <maint@mikos.invalid>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+
+Package: mikos-base
+Architecture: all
+# nftables must be configured before preinst diverts (and renames) its
+# /etc/nftables.conf, or Debian's copy is never installed and cannot be restored.
+Pre-Depends: nftables
+Depends: ${misc:Depends},
+ apparmor,
+ auditd,
+ ca-certificates,
+ chrony,
+ curl,
+ git,
+ htop,
+ jq,
+ nftables,
+ openssh-server,
+ tmux,
+ ucf,
+ unattended-upgrades,
+ vim-tiny
+Description: Mikos base system configuration
+ Hardening, APT policy, repository and defaults shared by all Mikos variants.

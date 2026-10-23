@@ -1,0 +1,10 @@
+PRETTY_NAME="Mikos 1.0"
+NAME="Mikos"
+VERSION_ID="1.0"
+VERSION="1.0"
+VERSION_CODENAME=trixie
+ID=mikos
+ID_LIKE=debian
+HOME_URL="https://github.com/mikea202/mikos"
+SUPPORT_URL="https://github.com/mikea202/mikos/issues"
+BUG_REPORT_URL="https://github.com/mikea202/mikos/issues"

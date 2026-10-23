@@ -1,0 +1,16 @@
+# Units Mikos runs by default. Images add "disable *" as a catch-all, so every
+# service that should start must be listed here (or in another package's preset).
+enable nftables.service
+enable auditd.service
+enable audit-rules.service
+enable chrony.service
+enable ssh.service
+# Regenerates host keys on first boot (images ship without them).
+enable sshd-keygen.service
+enable apparmor.service
+enable unattended-upgrades.service
+enable apt-daily.timer
+enable apt-daily-upgrade.timer
+enable fstrim.timer
+# ssh.service listens itself; the socket unit would fight it for port 22.
+disable ssh.socket

@@ -1,0 +1,19 @@
+#!/bin/sh
+set -e
+if [ "$1" = configure ]; then
+	# /etc/nftables.conf is a conffile of nftables (diverted in preinst), so we
+	# install ours with ucf: a second dpkg conffile on the same path would be
+	# treated as a takeover of Debian's and prompt as "deleted by you".
+	ucf --package mikos-base /usr/share/mikos-base/nftables.conf /etc/nftables.conf
+	ucfr mikos-base /etc/nftables.conf
+fi
+if [ "$1" = configure ] && command -v systemctl >/dev/null 2>&1; then
+	systemctl enable nftables.service >/dev/null 2>&1 || true
+	if [ -d /run/systemd/system ]; then
+		sysctl --system >/dev/null || true
+		# reload only swaps the mikos table; restart would also run ExecStop.
+		systemctl reload-or-restart nftables.service || true
+		systemctl reload ssh.service 2>/dev/null || true
+	fi
+fi
+#DEBHELPER#

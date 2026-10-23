@@ -1,0 +1,9 @@
+-w /etc/sudoers -p wa -k mikos-identity
+-w /etc/sudoers.d/ -p wa -k mikos-identity
+-w /etc/passwd -p wa -k mikos-identity
+-w /etc/shadow -p wa -k mikos-identity
+-w /etc/group -p wa -k mikos-identity
+-w /etc/ssh/sshd_config -p wa -k mikos-sshd
+-w /etc/ssh/sshd_config.d/ -p wa -k mikos-sshd
+-w /etc/nftables.conf -p wa -k mikos-firewall
+-w /etc/nftables.d/ -p wa -k mikos-firewall

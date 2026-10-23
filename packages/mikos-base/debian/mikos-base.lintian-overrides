@@ -1,0 +1,2 @@
+# mikos-base is the Mikos distro's repo-setup package; shipping its APT source is its purpose.
+mikos-base: package-installs-apt-sources [etc/apt/sources.list.d/mikos.sources]

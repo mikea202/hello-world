@@ -1,0 +1,4 @@
+#!/bin/sh
+# shellcheck source=/dev/null
+. /etc/os-release
+printf '\n  %s on %s\n\n' "$PRETTY_NAME" "$(uname -n)"
