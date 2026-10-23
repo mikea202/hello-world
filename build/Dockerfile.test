@@ -1,0 +1,7 @@
+FROM debian:trixie
+ARG DEBIAN_FRONTEND=noninteractive
+# policy-rc.d stops maintainer scripts from starting daemons inside the container.
+RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d && chmod +x /usr/sbin/policy-rc.d \
+    && apt-get update && apt-get install -y --no-install-recommends bats ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+ENV DEBIAN_FRONTEND=noninteractive
