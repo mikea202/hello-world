@@ -43,6 +43,26 @@ setup_file() {
 	grep -q 'tcp dport 22 accept' /etc/nftables.conf
 }
 
+@test "nftables reload replaces only the mikos table" {
+	! grep -q 'flush ruleset' /etc/nftables.conf
+	grep -q '^destroy table inet mikos' /etc/nftables.conf
+}
+
+@test "nftables has extension chains for ssh and forwarding" {
+	run nft -c -f /etc/nftables.conf
+	[ "$status" -eq 0 ]
+	awk '/chain allow_ssh/{s=1} s && /tcp dport 22 accept/{print "ok"; exit}' /etc/nftables.conf | grep -q ok
+	grep -q 'jump allow_ssh' /etc/nftables.conf
+	grep -q 'chain forward_extra' /etc/nftables.conf
+	grep -q 'jump forward_extra' /etc/nftables.conf
+}
+
+@test "nftables service stop removes only the mikos table" {
+	f=/usr/lib/systemd/system/nftables.service.d/50-mikos.conf
+	grep -qx 'ExecStop=' "$f"
+	grep -qx 'ExecStop=/usr/sbin/nft destroy table inet mikos' "$f"
+}
+
 @test "sysctl hardening drop-in present" {
 	grep -q '^kernel.kptr_restrict = 2' /etc/sysctl.d/50-mikos.conf
 	grep -q '^net.ipv4.conf.all.rp_filter = 1' /etc/sysctl.d/50-mikos.conf
@@ -79,9 +99,18 @@ setup_file() {
 	[ -e /usr/share/man/man1/hello.1.gz ]
 }
 
+@test "reinstall is non-interactive and keeps local firewall edits" {
+	echo '# local edit' >>/etc/nftables.conf
+	apt-get install -y --reinstall /src/out/debs/mikos-base_*_all.deb </dev/null >/dev/null
+	grep -qx '# local edit' /etc/nftables.conf
+	sed -i '/^# local edit$/d' /etc/nftables.conf
+}
+
 @test "removing mikos-base restores diverted files" {
 	apt-get remove -y mikos-base >/dev/null
 	! dpkg-divert --list /usr/lib/os-release | grep -q mikos-base
 	. /usr/lib/os-release
 	[ "$ID" = debian ]
+	[ ! -e /etc/nftables.conf.debian ]
+	grep -q 'table inet filter' /etc/nftables.conf
 }

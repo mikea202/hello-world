@@ -8,6 +8,9 @@ Rules-Requires-Root: no
 
 Package: mikos-base
 Architecture: all
+# nftables must be configured before preinst diverts (and renames) its
+# /etc/nftables.conf, or Debian's copy is never installed and cannot be restored.
+Pre-Depends: nftables
 Depends: ${misc:Depends},
  apparmor,
  auditd,
@@ -20,6 +23,7 @@ Depends: ${misc:Depends},
  nftables,
  openssh-server,
  tmux,
+ ucf,
  unattended-upgrades,
  vim-tiny
 Description: Mikos base system configuration

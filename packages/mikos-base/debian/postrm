@@ -1,8 +1,12 @@
 #!/bin/sh
 set -e
 if [ "$1" = remove ] || [ "$1" = abort-install ] || [ "$1" = disappear ]; then
-	# Our nftables.conf is a conffile and survives remove; drop it so the Debian one can return.
+	# Drop our ucf-managed ruleset so the diverted Debian one can return.
 	rm -f /etc/nftables.conf
+	if command -v ucf >/dev/null 2>&1; then
+		ucf --package mikos-base --purge /etc/nftables.conf
+		ucfr --purge mikos-base /etc/nftables.conf
+	fi
 	for f in /usr/lib/os-release /etc/nftables.conf; do
 		dpkg-divert --package mikos-base --remove --rename --divert "$f.debian" "$f"
 	done
