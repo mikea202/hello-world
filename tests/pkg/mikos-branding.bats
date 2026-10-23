@@ -14,6 +14,8 @@ setup_file() {
 	run /etc/update-motd.d/10-mikos
 	[ "$status" -eq 0 ]
 	[[ "$output" == *"Mikos 1.0"* ]]
+	[[ "$output" == *" on $(uname -n)"* ]]
+	! grep -q hostname /etc/update-motd.d/10-mikos
 }
 
 @test "grub distributor set to Mikos" {
