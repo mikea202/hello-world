@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+if [ "$1" = install ] || [ "$1" = upgrade ]; then
+	for f in /usr/lib/os-release /etc/nftables.conf; do
+		dpkg-divert --package mikos-base --add --rename --divert "$f.debian" "$f"
+	done
+fi
+#DEBHELPER#

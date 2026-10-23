@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+if [ "$1" = remove ] || [ "$1" = abort-install ] || [ "$1" = disappear ]; then
+	# Our nftables.conf is a conffile and survives remove; drop it so the Debian one can return.
+	rm -f /etc/nftables.conf
+	for f in /usr/lib/os-release /etc/nftables.conf; do
+		dpkg-divert --package mikos-base --remove --rename --divert "$f.debian" "$f"
+	done
+fi
+#DEBHELPER#

@@ -1,0 +1,26 @@
+Source: mikos-base
+Section: admin
+Priority: optional
+Maintainer: Mikos Maintainers <maint@mikos.invalid>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+
+Package: mikos-base
+Architecture: all
+Depends: ${misc:Depends},
+ apparmor,
+ auditd,
+ ca-certificates,
+ chrony,
+ curl,
+ git,
+ htop,
+ jq,
+ nftables,
+ openssh-server,
+ tmux,
+ unattended-upgrades,
+ vim-tiny
+Description: Mikos base system configuration
+ Hardening, APT policy, repository and defaults shared by all Mikos variants.

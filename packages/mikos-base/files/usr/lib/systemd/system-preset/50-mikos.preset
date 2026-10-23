@@ -1,0 +1,5 @@
+enable nftables.service
+enable auditd.service
+enable chrony.service
+enable ssh.service
+enable apparmor.service

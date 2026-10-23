@@ -1,0 +1,5 @@
+Types: deb
+URIs: https://mikea202.github.io/mikos/apt
+Suites: trixie
+Components: main
+Signed-By: /usr/share/keyrings/mikos-archive-keyring.gpg

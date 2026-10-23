@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+if [ "$1" = configure ] && command -v systemctl >/dev/null 2>&1; then
+	systemctl enable nftables.service >/dev/null 2>&1 || true
+	if [ -d /run/systemd/system ]; then
+		sysctl --system >/dev/null || true
+		systemctl restart nftables.service || true
+		systemctl reload ssh.service 2>/dev/null || true
+	fi
+fi
+#DEBHELPER#
