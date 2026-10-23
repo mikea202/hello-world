@@ -1,0 +1,13 @@
+Source: mikos-branding
+Section: misc
+Priority: optional
+Maintainer: Mikos Maintainers <maint@mikos.invalid>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+
+Package: mikos-branding
+Architecture: all
+Depends: ${misc:Depends}, mikos-base (>= 1.0.0)
+Description: Mikos branding (minimal)
+ Console banner, login message and boot menu name for Mikos.

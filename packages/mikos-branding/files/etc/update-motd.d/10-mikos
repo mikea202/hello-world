@@ -1,0 +1,3 @@
+#!/bin/sh
+. /etc/os-release
+printf '\n  %s on %s\n\n' "$PRETTY_NAME" "$(hostname)"
