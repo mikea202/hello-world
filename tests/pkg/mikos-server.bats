@@ -19,6 +19,10 @@ setup_file() {
 	[ "$output" = ok ]
 }
 
+@test "fail2ban enabled by systemd preset" {
+	grep -qx 'enable fail2ban.service' /usr/lib/systemd/system-preset/50-mikos-server.preset
+}
+
 @test "lean: no docker, cockpit or powershell" {
 	! dpkg -l | awk '{print $2}' | grep -Eq '^(docker|cockpit|powershell)'
 }

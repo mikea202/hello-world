@@ -1,7 +1,11 @@
+# Image-level units on top of the package presets (50-mikos*.preset).
+# 99-mikos-image.preset disables everything not listed anywhere.
 enable systemd-networkd.service
 enable systemd-resolved.service
-# Debian ships these chrony units disabled, but preset-all would enable them:
-# chrony-wait fails boot after 180s without NTP reachability, and
-# chronyd-restricted conflicts with (and displaces) chrony.service.
-disable chrony-wait.service
-disable chronyd-restricted.service
+enable getty@.service
+# Debian enables this by default (daily dpkg status backup).
+enable dpkg-db-backup.timer
+# chrony keeps time; extension images are not used.
+disable systemd-timesyncd.service
+disable systemd-sysext.service
+disable systemd-confext.service

@@ -38,6 +38,21 @@ s() { $MIKOS_SSH "$@"; }
 	done
 }
 
+@test "only intended units are enabled" {
+	for u in ssh.socket systemd-sysext.service systemd-confext.service systemd-sysext.socket \
+		systemd-pcrlock-make-policy.service chrony-wait.service chronyd-restricted.service; do
+		run s systemctl is-enabled "$u"
+		echo "$u: $output"
+		[ "$output" = disabled ]
+	done
+	for u in ssh.service fail2ban.service nftables.service chrony.service unattended-upgrades.service \
+		systemd-networkd.service systemd-resolved.service apt-daily.timer fstrim.timer; do
+		run s systemctl is-enabled "$u"
+		echo "$u: $output"
+		[ "$output" = enabled ]
+	done
+}
+
 @test "password authentication not offered" {
 	run ssh $MIKOS_SSH_OPTS -o BatchMode=yes -o PubkeyAuthentication=no nobody@127.0.0.1 true
 	[ "$status" -ne 0 ]

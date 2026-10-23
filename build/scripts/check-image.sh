@@ -20,4 +20,10 @@ else
 	ok "no SSH host keys in image"
 fi
 
+if rootfs "ls /etc/systemd/system/sockets.target.wants" | grep -q 'ssh\.socket'; then
+	bad "ssh.socket enabled"
+else
+	ok "ssh.socket not enabled"
+fi
+
 exit $fail

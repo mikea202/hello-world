@@ -87,6 +87,16 @@ setup_file() {
 	[ -s /usr/share/keyrings/mikos-archive-keyring.gpg ]
 }
 
+@test "systemd preset enables the hardened services and not ssh.socket" {
+	f=/usr/lib/systemd/system-preset/50-mikos.preset
+	for u in ssh.service sshd-keygen.service nftables.service auditd.service audit-rules.service \
+		chrony.service apparmor.service unattended-upgrades.service \
+		apt-daily.timer apt-daily-upgrade.timer fstrim.timer; do
+		grep -qx "enable $u" "$f"
+	done
+	grep -qx 'disable ssh.socket' "$f"
+}
+
 @test "auditd rules watch identity and firewall files" {
 	grep -q -- '-k mikos-identity' /etc/audit/rules.d/50-mikos.rules
 	grep -q -- '-k mikos-firewall' /etc/audit/rules.d/50-mikos.rules
