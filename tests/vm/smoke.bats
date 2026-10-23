@@ -53,6 +53,17 @@ s() { $MIKOS_SSH "$@"; }
 	done
 }
 
+@test "reloading the firewall keeps fail2ban's table" {
+	s sudo fail2ban-client set sshd banip 192.0.2.1
+	s sudo nft list table inet f2b-table
+	s sudo systemctl reload nftables
+	s sudo nft list table inet f2b-table
+	s sudo systemctl restart nftables
+	s sudo nft list table inet f2b-table
+	s sudo nft list chain inet mikos input
+	s sudo fail2ban-client set sshd unbanip 192.0.2.1
+}
+
 @test "kernel command line names the root partition" {
 	run s cat /proc/cmdline
 	[[ "$output" == *"root=PARTLABEL=root-x86-64"* ]]
