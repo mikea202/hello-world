@@ -9,6 +9,8 @@ Mikos is a Debian 13 (Trixie) remix. Phase 1 ships **server only**, with a gover
 
 Audience: personal/homelab now, agency deployment later (phase 3).
 
+**Design principle: lean.** Every variant installs the minimum needed. Anything non-essential ships as an optional package, never pulled in by default (§2a).
+
 ## 2. Scope
 
 ### In (phase 1)
@@ -21,7 +23,7 @@ Audience: personal/homelab now, agency deployment later (phase 3).
 - Docker-based build, GitHub Actions CI with QEMU boot tests
 
 ### Out (later phases)
-- Phase 2: `mikos-desktop` (KDE Plasma, Calamares, live ISO), full branding (Plymouth/SDDM/KDE)
+- Phase 2: `mikos-desktop` (minimal KDE Plasma, Calamares, live ISO), full branding (Plymouth/SDDM/KDE), **Amazon WorkSpaces client** (`mikos-desktop` depends on it). Risk: AWS officially supports the Linux client on Ubuntu, not Debian. Verify at phase 2 planning that it installs and runs on Debian 13; fallback options are repackaging the Ubuntu .deb with fixed dependencies, or a Flatpak/container wrapper.
 - Phase 3: `mikos-corp` (realmd/sssd AD join, Entra SSO via himmelblau, Defender for Endpoint, CIS L1, enforced LUKS)
 - Local LLM inference / GPU drivers (no capable hardware; internet + OpenRouter required)
 - arm64
@@ -30,6 +32,24 @@ Audience: personal/homelab now, agency deployment later (phase 3).
 - Internet access required for AI features (OpenRouter).
 - Intune does not officially support Debian. If Intune compliance becomes mandatory in phase 3, rebase to Ubuntu LTS; keep packages distro-portable (no Debian-only hacks where avoidable).
 - Agent availability depends on upstream projects (Hermes: NousResearch; Pi: badlogic/Earendil). Versions pinned; agents are pluggable behind the gateway.
+
+## 2a. Lean policy (all variants)
+
+- `APT::Install-Recommends "false"` and `APT::Install-Suggests "false"` set in mikos-base, the installer, and the image builds
+- dpkg `path-exclude` drop-in: drop `/usr/share/doc/*` (except copyright files), non-English locales, and translated man pages. English man pages stay.
+- Meta-packages only `Depends` on essentials. Extras go in **optional** packages that are never `Recommends`:
+  - `mikos-pwsh` (PowerShell 7)
+  - `mikos-docker` (Docker CE + compose). Pulled in only by `mikos-vanna` or on request.
+  - `mikos-cockpit` (Cockpit web admin)
+  - `mikos-vanna`
+- No firmware blobs beyond `firmware-linux-free` by default. The installer adds hardware firmware only when detected.
+- Single kernel flavor; old kernels autoremoved
+- Size budgets enforced in CI (build fails if exceeded):
+  - server ISO ≤ 900 MB
+  - server installed footprint ≤ 2.0 GB including the AI stack (≤ 1.2 GB without the AI packages)
+  - qcow2 image ≤ 1.0 GB compressed
+  - Phase 2 desktop: ISO ≤ 2.5 GB, installed ≤ 6 GB (targets, revisit then)
+- AI stack trimmed: one shared Node LTS runtime (only Pi uses it), venvs built with `--no-cache` and with bytecode/tests stripped. `mikos-ai-gateway` installs the LiteLLM proxy extras only.
 
 ## 3. Repository layout
 
@@ -66,16 +86,15 @@ Versioning: Mikos `1.x` = Debian 13. Point releases = package updates only. Pack
 - unattended-upgrades: security only, Mikos repo included
 - auditd + rules; AppArmor enforced
 - chrony
-- CLI tools: vim, htop, curl, git, jq, tmux, PowerShell 7 (Microsoft repo)
+- CLI tools (minimal): vim-tiny, htop, curl, git, jq, tmux. PowerShell 7 moves to optional `mikos-pwsh`.
 
 Config files are shipped as drop-ins (`*.d/`) wherever possible to avoid conffile conflicts with Debian packages.
 
 ### mikos-server
 - Depends: mikos-base
-- Docker CE + compose plugin (Docker repo)
 - fail2ban (sshd jail)
-- Cockpit (bound to localhost by default; opt-in to open port 9090)
 - No GUI
+- Docker and Cockpit are not included. Install them with `mikos-docker` / `mikos-cockpit` (Cockpit binds to localhost by default; opening port 9090 is opt-in).
 
 ### mikos-branding (minimal in phase 1)
 - os-release values, GRUB theme/name, `/etc/issue`, motd
@@ -110,12 +129,12 @@ Config files are shipped as drop-ins (`*.d/`) wherever possible to avoid conffil
 - `mikos-ai on|off` — enable/disable all AI (stops gateway → all agents lose model access)
 - `mikos-ai key set` — set/rotate OpenRouter key (writes systemd-creds)
 - `mikos-ai agent add|list|budget|revoke <name>` — manage virtual keys
-- `mikos-ai ask "<question>"` — runs default agent (Hermes) with **read-only tool profile** (journalctl, systemctl status, df, ss, cat /etc, docker ps); returns answer
+- `mikos-ai ask "<question>"` — runs default agent (Hermes) with **read-only tool profile** (journalctl, systemctl status, df, ss, cat /etc, plus docker ps when mikos-docker is installed); returns answer
 - `mikos-ai audit [--agent X] [--since ...]` — query audit log
 
 ### 5.4 Agent sandbox (shared rules)
 - Each agent = own system user (`hermes`, `pi`) with home in `/var/lib/<agent>`
-- Root only via `/etc/sudoers.d/mikos-agents` allowlist: `systemctl`, `journalctl`, `apt`, `apt-get`, `docker` (exact command paths; no shell, no editors)
+- Root only via `/etc/sudoers.d/mikos-agents` allowlist: `systemctl`, `journalctl`, `apt`, `apt-get`, plus `docker` when mikos-docker is installed (exact command paths; no shell, no editors)
 - auditd rules key every execve by agent uids (`-k mikos-agent`)
 - Agents receive only their gateway virtual key (via `LoadCredential=`), never the OpenRouter key
 
@@ -134,6 +153,7 @@ Config files are shipped as drop-ins (`*.d/`) wherever possible to avoid conffil
 - No MCP (Pi design choice); integrations via Pi extensions
 
 ### 5.7 mikos-vanna (optional)
+- Depends: `mikos-docker`
 - Docker Compose stack in `/opt/mikos/vanna`: Vanna + vector DB (Chroma) + web UI
 - LLM calls via gateway (own virtual key)
 - Not installed by default; `apt install mikos-vanna`
@@ -147,7 +167,7 @@ TUI (whiptail/dialog), runs once on first console/SSH login as root, re-runnable
 4. Default model pick (from allowlist)
 5. Create virtual keys: hermes, pi-agent, admin
 6. Optional: Hermes Telegram/Discord gateway
-7. Optional: open Cockpit port
+7. Optional extras: mikos-docker, mikos-cockpit, mikos-pwsh, mikos-vanna (all unchecked by default)
 8. Summary + mark complete (`/var/lib/mikos/setup-done`)
 
 Skippable AI steps — system must work fully without AI configured.
@@ -172,7 +192,9 @@ Per main/tag (QEMU, KVM if available):
 - Boot mkosi qcow2 → same smoke tests
 
 Smoke tests:
-- sshd, nftables, auditd, fail2ban, docker, mikos-ai-gateway, hermes active
+- sshd, nftables, auditd, fail2ban, mikos-ai-gateway, hermes active
+- Docker **not** installed by default; no Recommends were pulled in (`apt-mark showauto` diff vs the expected manifest)
+- Size budgets from §2a met
 - Root SSH login refused; password auth refused
 - Gateway answers `/v1/chat/completions` via mock upstream (fake OpenRouter in test)
 - Agent user cannot reach openrouter.ai directly; can reach gateway
@@ -205,3 +227,5 @@ Smoke tests:
 - Exact pinned versions of Hermes, Pi, LiteLLM, Node LTS (resolve at plan time)
 - Pi npm scope (`@mariozechner` vs `@earendil-works`) — confirm current
 - Initial model allowlist / default model on OpenRouter
+- Confirm the size budgets are realistic after the first build; tune them
+- Phase 2: Amazon WorkSpaces Linux client on Debian 13 (see §2 Out)
