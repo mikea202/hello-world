@@ -1,0 +1,18 @@
+Source: mikos-server
+Section: metapackages
+Priority: optional
+Maintainer: Mikos Maintainers <maint@mikos.invalid>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+
+Package: mikos-server
+Architecture: all
+Depends: ${misc:Depends},
+ mikos-base (>= 1.0.0),
+ mikos-branding (>= 1.0.0),
+ fail2ban,
+ python3-systemd
+Description: Mikos Server meta-package
+ Lean headless server. Docker, Cockpit and PowerShell are optional
+ packages (mikos-docker, mikos-cockpit, mikos-pwsh).
