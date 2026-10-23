@@ -5,7 +5,7 @@ Status: Approved (design), pending implementation plan
 
 ## 1. Summary
 
-Mikos is a Debian 13 (Trixie) remix. Phase 1 ships **server only**, with a governed **AI harness** baked into the base: a local LLM gateway (LiteLLM → OpenRouter) plus two agents — **Hermes Agent** (resident ops daemon) and **Pi** (interactive admin CLI). All customization ships as signed `.deb` packages from a Mikos APT repo; ISOs and VM images just install meta-packages, so installed systems upgrade via `apt`.
+Mikos is a Debian 13 (Trixie) remix. Phase 1 ships **server only**, with a governed **AI harness** baked into the base: a local LLM gateway (LiteLLM → OpenRouter) plus two agents — **Hermes Agent** (resident ops daemon) and **Pi** (interactive admin CLI). An optional **router role** (`mikos-router`) turns the server into an internet gateway, firewall and router, similar to OPNsense. All customization ships as signed `.deb` packages from a Mikos APT repo; ISOs and VM images just install meta-packages, so installed systems upgrade via `apt`.
 
 Audience: personal/homelab now, agency deployment later (phase 3).
 
@@ -17,6 +17,7 @@ Audience: personal/homelab now, agency deployment later (phase 3).
 - `mikos-base`, `mikos-server`, `mikos-branding` (minimal: os-release, GRUB, motd)
 - AI harness: `mikos-ai-gateway`, `mikos-ai` (CLI), `mikos-agent-hermes`, `mikos-agent-pi`
 - Optional: `mikos-vanna` (Vanna.ai Docker Compose stack)
+- Optional router role: `mikos-router` (WAN/LAN, NAT, zone firewall, VLANs, DHCP, DNS + blocklists) and `mikos-router-ids` (Suricata IPS). See §5a.
 - First-boot TUI `mikos-setup`
 - Signed APT repo on GitHub Pages
 - Outputs: `mikos-server-<ver>-amd64.iso` (live-build, installer), `.qcow2` + `.vhdx` (mkosi)
@@ -25,6 +26,8 @@ Audience: personal/homelab now, agency deployment later (phase 3).
 ### Out (later phases)
 - Phase 2: `mikos-desktop` (minimal KDE Plasma, Calamares, live ISO), full branding (Plymouth/SDDM/KDE), **Amazon WorkSpaces client** (`mikos-desktop` depends on it). Risk: AWS officially supports the Linux client on Ubuntu, not Debian. Verify at phase 2 planning that it installs and runs on Debian 13; fallback options are repackaging the Ubuntu .deb with fixed dependencies, or a Flatpak/container wrapper.
 - Phase 3: `mikos-corp` (realmd/sssd AD join, Entra SSO via himmelblau, Defender for Endpoint, CIS L1, enforced LUKS)
+- Router 1.1: web GUI as a Cockpit plugin editing `router.yaml`
+- Router later: VPN (WireGuard/OpenVPN/IPsec), multi-WAN, QoS/SQM
 - Local LLM inference / GPU drivers (no capable hardware; internet + OpenRouter required)
 - arm64
 
@@ -42,12 +45,14 @@ Audience: personal/homelab now, agency deployment later (phase 3).
   - `mikos-docker` (Docker CE + compose). Pulled in only by `mikos-vanna` or on request.
   - `mikos-cockpit` (Cockpit web admin)
   - `mikos-vanna`
+  - `mikos-router`, `mikos-router-ids`
 - No firmware blobs beyond `firmware-linux-free` by default. The installer adds hardware firmware only when detected.
 - Single kernel flavor; old kernels autoremoved
 - Size budgets enforced in CI (build fails if exceeded):
   - server ISO ≤ 900 MB
   - server installed footprint ≤ 2.0 GB including the AI stack (≤ 1.2 GB without the AI packages)
   - qcow2 image ≤ 1.0 GB compressed
+  - router role adds ≤ 150 MB; with IDS ≤ 250 MB more
   - Phase 2 desktop: ISO ≤ 2.5 GB, installed ≤ 6 GB (targets, revisit then)
 - AI stack trimmed: one shared Node LTS runtime (only Pi uses it), venvs built with `--no-cache` and with bytecode/tests stripped. `mikos-ai-gateway` installs the LiteLLM proxy extras only.
 
@@ -64,6 +69,8 @@ packages/
   mikos-agent-pi/
   mikos-setup/
   mikos-vanna/
+  mikos-router/
+  mikos-router-ids/
 repo/            # aptly config; published output → gh-pages
 iso/             # live-build config (server installer ISO)
 images/          # mkosi config (qcow2, vhdx)
@@ -136,6 +143,7 @@ Config files are shipped as drop-ins (`*.d/`) wherever possible to avoid conffil
 - Each agent = own system user (`hermes`, `pi`) with home in `/var/lib/<agent>`
 - Root only via `/etc/sudoers.d/mikos-agents` allowlist: `systemctl`, `journalctl`, `apt`, `apt-get`, plus `docker` when mikos-docker is installed (exact command paths; no shell, no editors)
 - auditd rules key every execve by agent uids (`-k mikos-agent`)
+- When `mikos-router` is installed, the allowlist is replaced by a router-safe variant: no `systemctl` on network units (systemd-networkd, nftables, kea-*, unbound, suricata, ppp), no `nft`, no `ip`, no `mikos-router apply|rollback|confirm`
 - Agents receive only their gateway virtual key (via `LoadCredential=`), never the OpenRouter key
 
 ### 5.5 mikos-agent-hermes (resident ops daemon)
@@ -157,6 +165,47 @@ Config files are shipped as drop-ins (`*.d/`) wherever possible to avoid conffil
 - Docker Compose stack in `/opt/mikos/vanna`: Vanna + vector DB (Chroma) + web UI
 - LLM calls via gateway (own virtual key)
 - Not installed by default; `apt install mikos-vanna`
+
+## 5a. Router role (mikos-router)
+
+### 5a.1 Config model
+- Single source of truth: `/etc/mikos/router.yaml`, validated by a JSON Schema (`/usr/share/mikos-router/schema.json`)
+- `mikos-router` CLI (Python):
+  - `validate [file]` checks the schema plus semantic rules (no overlapping subnets, VLAN IDs 1–4094, zone names unique, port-forward targets inside a zone subnet)
+  - `diff [--proposal ID]` shows a unified diff of the YAML and of the rendered configs
+  - `apply`: render, then atomic switch, then a 120s confirm timer. Auto-rollback if `mikos-router confirm` isn't run in time or the invoking SSH session drops.
+  - `confirm`
+  - `rollback [N]`: history of the last 10 applied configs in `/var/lib/mikos-router/history/`
+  - `status`: interfaces, WAN IP, DHCP leases, top blocked flows, Suricata alert count
+- Rendering is a pure function (YAML in, files out) so it can be unit-tested without root
+
+### 5a.2 Generated components
+| Function | Tool | Output |
+|---|---|---|
+| Interfaces, VLANs, WAN (DHCP/static/PPPoE) | systemd-networkd; `ppp` for PPPoE | `/etc/systemd/network/50-mikos-*.{network,netdev}` |
+| Firewall, NAT, port forwards, zones | nftables | `/etc/nftables.d/50-mikos-router.nft` |
+| DHCP | Kea DHCPv4 | `/etc/kea/kea-dhcp4.conf` |
+| DNS resolver/cache, blocklists, DNSSEC | Unbound | `/etc/unbound/unbound.conf.d/50-mikos.conf` + blocklist RPZ files |
+| IDS/IPS (mikos-router-ids) | Suricata, NFQUEUE IPS on WAN-forwarded traffic, ET Open rules updated daily (systemd timer) | `/etc/suricata/mikos.yaml`, eve.json alerts |
+
+### 5a.3 Zones and policy
+- Zones: `wan`, `lan`, plus any number of VLAN zones (e.g. `guest`, `iot`, `mgmt`)
+- Default deny between zones. An inter-zone rule matrix in YAML allows specific flows. Every non-wan zone gets NAT to wan by default.
+- `guest` template: internet only, isolated from all other zones
+- Router services (DNS, DHCP) are reachable from internal zones only
+- SSH and the AI stack listen on lan/mgmt only. WAN SSH needs an explicit `wan_ssh: true`.
+- Blocklists: configurable list URLs, refreshed daily by a systemd timer, default lists are ad and malware
+
+### 5a.4 AI on the router: propose-only
+- Agents can read state through the `mikos-router-read` group: `mikos-router status`, logs, leases, Suricata alerts
+- Agents can write proposals only to `/var/lib/mikos-router/proposals/<id>.yaml` (group-writable dir, sticky)
+- A human reviews with `mikos-router diff --proposal <id>`, then runs `mikos-router apply --proposal <id>`
+- Agents have no network sudo (§5.4)
+- Hermes ships a `router-advisor` skill: explain rules, triage Suricata alerts, draft proposals
+
+### 5a.5 Install and setup
+- The ISO installer offers a role: `server` (default) or `router` (adds `mikos-router`, with an optional IDS checkbox)
+- `mikos-setup` router steps: detect NICs, assign WAN and LAN, WAN mode (DHCP/static/PPPoE), LAN subnet, optional guest VLAN. It writes the initial `router.yaml` and applies it with confirm.
 
 ## 6. First boot: mikos-setup
 
@@ -202,6 +251,18 @@ Smoke tests:
 - Audit log entry written per gateway call
 - `mikos-ai off` → agent request fails; `on` → succeeds
 
+Router tests (3 QEMU VMs: upstream, router, LAN client):
+- Client gets a DHCP lease, resolves DNS through the router, reaches upstream through NAT
+- A blocklisted domain returns NXDOMAIN
+- A guest VLAN client cannot reach a lan host but can reach upstream
+- A port forward from upstream reaches the LAN service
+- Applying a config without confirming auto-rolls back within 120s and connectivity is restored
+- An agent user cannot run `mikos-router apply`, `nft` or restart network units; it can write a proposal
+- WAN-side SSH is refused by default
+- (IDS) Suricata test signature (e.g. `curl http://testmynids.org/uid/index.html` from client against a local mock) raises an alert
+
+Unit tests: renderer golden-file tests for each component, plus schema/semantic validation cases
+
 ## 9. Release
 
 - Tag `vX.Y.Z` → CI: build debs → publish signed aptly repo to gh-pages → build ISO + images → attach to GitHub Release with SHA256SUMS (signed)
@@ -221,6 +282,7 @@ Smoke tests:
 - `mikos-ai ask "summarize system health"` returns an answer
 - That call appears in `mikos-ai audit`
 - `apt upgrade` from the Mikos repo upgrades all Mikos packages cleanly
+- Router role: a LAN client in the QEMU topology gets internet through the router; a guest client is isolated; a bad config auto-rolls back
 - All CI smoke tests green
 
 ## 12. Open items for planning
