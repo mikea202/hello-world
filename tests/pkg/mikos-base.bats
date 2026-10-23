@@ -66,6 +66,12 @@ setup_file() {
 @test "sysctl hardening drop-in present" {
 	grep -q '^kernel.kptr_restrict = 2' /etc/sysctl.d/50-mikos.conf
 	grep -q '^net.ipv4.conf.all.rp_filter = 1' /etc/sysctl.d/50-mikos.conf
+	for k in 'net.ipv4.conf.default.send_redirects = 0' \
+		'net.ipv4.conf.default.accept_source_route = 0' \
+		'net.ipv6.conf.all.accept_source_route = 0' \
+		'kernel.yama.ptrace_scope = 1'; do
+		grep -qx "$k" /etc/sysctl.d/50-mikos.conf
+	done
 }
 
 @test "unattended-upgrades limited to Debian security and Mikos" {
