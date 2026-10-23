@@ -1,0 +1,1 @@
+root=PARTLABEL=root-x86-64 rw console=ttyS0 console=tty0

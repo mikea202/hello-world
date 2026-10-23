@@ -53,6 +53,12 @@ s() { $MIKOS_SSH "$@"; }
 	done
 }
 
+@test "kernel command line names the root partition" {
+	run s cat /proc/cmdline
+	[[ "$output" == *"root=PARTLABEL=root-x86-64"* ]]
+	s grep -q 'root=PARTLABEL=root-x86-64' /etc/kernel/cmdline
+}
+
 @test "password authentication not offered" {
 	run ssh $MIKOS_SSH_OPTS -o BatchMode=yes -o PubkeyAuthentication=no nobody@127.0.0.1 true
 	[ "$status" -ne 0 ]

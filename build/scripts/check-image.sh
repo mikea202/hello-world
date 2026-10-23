@@ -20,6 +20,20 @@ else
 	ok "no SSH host keys in image"
 fi
 
+cmdline=$(rootfs "cat /etc/kernel/cmdline")
+if [[ "$cmdline" == *root=PARTLABEL=root-x86-64* ]]; then ok "/etc/kernel/cmdline has root="; else bad "/etc/kernel/cmdline lacks root= ($cmdline)"; fi
+
+entries=$(mdir -b -i "$img@@$esp_off" ::/loader/entries 2>/dev/null || true)
+[[ -n "$entries" ]] || bad "no boot loader entries on ESP"
+for e in $entries; do
+	opts=$(mtype -i "$img@@$esp_off" "$e" | sed -n 's/^options //p')
+	if [[ "$opts" == *root=PARTLABEL=root-x86-64* ]] && (( $(grep -o 'root=' <<<"$opts" | wc -l) == 1 )); then
+		ok "boot entry ${e##*/} has root="
+	else
+		bad "boot entry ${e##*/} needs exactly one root=PARTLABEL=root-x86-64: $opts"
+	fi
+done
+
 if rootfs "ls /etc/systemd/system/sockets.target.wants" | grep -q 'ssh\.socket'; then
 	bad "ssh.socket enabled"
 else
