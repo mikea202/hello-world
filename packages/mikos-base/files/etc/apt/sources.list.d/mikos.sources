@@ -1,5 +1,7 @@
+# Enabled by release (plan 7) once https://mikea202.github.io/mikos/apt is live
 Types: deb
 URIs: https://mikea202.github.io/mikos/apt
 Suites: trixie
 Components: main
 Signed-By: /usr/share/keyrings/mikos-archive-keyring.gpg
+Enabled: no

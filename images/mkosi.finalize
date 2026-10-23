@@ -4,3 +4,6 @@ set -eu
 # Every machine must get its own SSH host keys: sshd-keygen.service runs
 # "ssh-keygen -A" on first boot (machine-id is "uninitialized" in the image).
 rm -f "$BUILDROOT"/etc/ssh/ssh_host_*
+# mkosi leaves its build-time sources (deb-src, debian-debug, duplicate
+# components); the image ships a clean debian.sources from mkosi.extra.
+rm -f "$BUILDROOT"/etc/apt/sources.list.d/trixie.sources

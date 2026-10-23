@@ -59,6 +59,13 @@ s() { $MIKOS_SSH "$@"; }
 	s grep -q 'root=PARTLABEL=root-x86-64' /etc/kernel/cmdline
 }
 
+@test "apt-get update is clean" {
+	run s sudo apt-get update
+	echo "$output"
+	[ "$status" -eq 0 ]
+	! grep -Eq '^(W|E):' <<<"$output"
+}
+
 @test "password authentication not offered" {
 	run ssh $MIKOS_SSH_OPTS -o BatchMode=yes -o PubkeyAuthentication=no nobody@127.0.0.1 true
 	[ "$status" -ne 0 ]

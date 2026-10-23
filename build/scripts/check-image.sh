@@ -34,6 +34,10 @@ for e in $entries; do
 	fi
 done
 
+sources=$(rootfs "ls /etc/apt/sources.list.d" | tr -s ' ' '\n' | grep '\.sources$' | sort | tr '\n' ' ')
+if [[ "$sources" == "debian.sources mikos.sources " ]]; then ok "APT sources: $sources"; else bad "unexpected APT sources: $sources"; fi
+if rootfs "cat /etc/apt/sources.list.d/debian.sources" | grep -q deb-src; then bad "debian.sources has deb-src"; fi
+
 if rootfs "ls /etc/systemd/system/sockets.target.wants" | grep -q 'ssh\.socket'; then
 	bad "ssh.socket enabled"
 else

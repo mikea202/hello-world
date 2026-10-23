@@ -84,6 +84,7 @@ setup_file() {
 
 @test "Mikos APT source and keyring installed" {
 	grep -q '^URIs: https://mikea202.github.io/mikos/apt' /etc/apt/sources.list.d/mikos.sources
+	grep -qx 'Enabled: no' /etc/apt/sources.list.d/mikos.sources
 	[ -s /usr/share/keyrings/mikos-archive-keyring.gpg ]
 }
 
