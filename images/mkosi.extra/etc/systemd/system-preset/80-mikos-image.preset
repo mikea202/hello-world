@@ -1,2 +1,7 @@
 enable systemd-networkd.service
 enable systemd-resolved.service
+# Debian ships these chrony units disabled, but preset-all would enable them:
+# chrony-wait fails boot after 180s without NTP reachability, and
+# chronyd-restricted conflicts with (and displaces) chrony.service.
+disable chrony-wait.service
+disable chronyd-restricted.service
