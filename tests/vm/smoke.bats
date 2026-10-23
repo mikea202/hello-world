@@ -24,9 +24,11 @@ s() { $MIKOS_SSH "$@"; }
 	[[ "$output" == *"policy drop"* ]]
 }
 
-@test "root SSH login refused" {
+@test "root SSH login refused even with an authorized key" {
+	s sudo test -s /root/.ssh/authorized_keys
 	run ssh $MIKOS_SSH_OPTS -o BatchMode=yes root@127.0.0.1 true
 	[ "$status" -ne 0 ]
+	[[ "$output" == *"Permission denied"* ]]
 }
 
 @test "SSH host keys generated on first boot" {

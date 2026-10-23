@@ -6,3 +6,6 @@ install -d -m700 -o mikos -g mikos /home/mikos/.ssh
 install -m600 -o mikos -g mikos /etc/mikos-test/authorized_keys /home/mikos/.ssh/authorized_keys
 echo 'mikos ALL=(ALL) NOPASSWD:ALL' >/etc/sudoers.d/90-mikos-test
 chmod 440 /etc/sudoers.d/90-mikos-test
+# Root also gets the key, so the smoke test proves sshd refuses root by policy.
+install -d -m700 /root/.ssh
+install -m600 /etc/mikos-test/authorized_keys /root/.ssh/authorized_keys
